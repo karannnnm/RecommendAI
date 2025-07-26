@@ -5,15 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Utensils, Clock, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Restaurant {
-  id: string;
-  restaurantName: string;
-  cuisine: string;
-  sampleReview: string;
-  speciality: string;
-  timings: string;
-}
+import { supabase, type Restaurant } from "@/lib/supabase";
 
 const RestaurantRecommendation = () => {
   const [query, setQuery] = useState("");
@@ -33,43 +25,22 @@ const RestaurantRecommendation = () => {
 
     setIsLoading(true);
     try {
-      // This will be connected to n8n webhook
-      console.log("Sending query to n8n:", query);
+      // For now, fetch all restaurants from Supabase
+      // Later this will be replaced with n8n webhook for AI recommendations
+      const { data: restaurants, error } = await supabase
+        .from('restaurants')
+        .select('*');
+
+      if (error) {
+        throw error;
+      }
+
+      setRecommendations(restaurants || []);
       
-      // Placeholder for n8n integration
-      // const response = await fetch('/api/n8n-webhook', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ query })
-      // });
-      
-      // Mock data for now
-      setTimeout(() => {
-        setRecommendations([
-          {
-            id: "1",
-            restaurantName: "Spice Garden",
-            cuisine: "Indian",
-            sampleReview: "Amazing authentic flavors and great service!",
-            speciality: "Butter Chicken & Biryani",
-            timings: "11:00 AM - 10:00 PM"
-          },
-          {
-            id: "2", 
-            restaurantName: "Pasta Palace",
-            cuisine: "Italian",
-            sampleReview: "Fresh pasta made daily, incredible taste!",
-            speciality: "Handmade Pasta & Wood-fired Pizza",
-            timings: "12:00 PM - 11:00 PM"
-          }
-        ]);
-        setIsLoading(false);
-        
-        toast({
-          title: "Recommendations found!",
-          description: `Found ${2} restaurants matching your query.`,
-        });
-      }, 1500);
+      toast({
+        title: "Recommendations found!",
+        description: `Found ${restaurants?.length || 0} restaurants in database.`,
+      });
       
     } catch (error) {
       console.error("Error fetching recommendations:", error);
