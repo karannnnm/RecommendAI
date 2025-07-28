@@ -1,73 +1,140 @@
-# Welcome to your Lovable project
+# Tasty Treasures 🍽️
 
-## Project info
+A modern, AI-powered restaurant recommendation platform that helps users discover perfect dining experiences tailored to their taste preferences.
 
-**URL**: https://lovable.dev/projects/3584542e-216d-4a85-bd05-2a33dbde2c33
+## Features ✨
 
-## How can I edit this code?
+- **Smart Restaurant Search**: Natural language queries to find restaurants based on cuisine, location, mood, or specific preferences
+- **AI-Powered Recommendations**: Integration with n8n workflows for intelligent restaurant suggestions
+- **Beautiful Modern UI**: Clean, responsive design with gradient themes and smooth animations
+- **Database Integration**: Supabase backend for reliable restaurant data storage
+- **Advanced Filtering**: Search by cuisine type, specialties, location, ratings, and more
+- **Real-time Results**: Instant search with elegant loading states and toast notifications
+- **Data Upload** (Coming Soon): Excel file upload for sales data analysis
 
-There are several ways of editing your application.
+## Tech Stack 🛠️
 
-**Use Lovable**
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI Components**: shadcn/ui + Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **AI Integration**: n8n workflows for intelligent recommendations
+- **Icons**: Lucide React
+- **Styling**: Custom gradient themes with backdrop blur effects
+- **State Management**: React hooks with toast notifications
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3584542e-216d-4a85-bd05-2a33dbde2c33) and start prompting.
+## Setup & Installation 🚀
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 16+ and npm (recommended to install with [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- A Supabase account and project
+- (Optional) n8n instance for AI-powered recommendations
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Development Setup
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. **Clone the repository**
+   ```sh
+   git clone <YOUR_GIT_URL>
+   cd tasty-treasures
+   ```
 
-Follow these steps:
+2. **Install dependencies**
+   ```sh
+   npm install
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. **Configure environment variables**
+   Create a `.env.local` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_N8N_WEBHOOK_URL=your_n8n_webhook_url_optional
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. **Start the development server**
+   ```sh
+   npm run dev
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+   Open [http://localhost:5173](http://localhost:5173) to view the app in your browser.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Database Schema 📊
+
+The app expects a `restaurants` table in Supabase with the following structure:
+
+```sql
+CREATE TABLE restaurants (
+  id SERIAL PRIMARY KEY,
+  restaurantName TEXT NOT NULL,
+  cuisine TEXT,
+  speciality TEXT,
+  location TEXT,
+  timings TEXT,
+  sampleReview TEXT,
+  rating DECIMAL(2,1)
+);
 ```
 
-**Edit a file directly in GitHub**
+## Usage 💡
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. **Search Restaurants**: Enter natural language queries like:
+   - "Best Italian restaurants in downtown"
+   - "Romantic dinner spots with good wine"
+   - "Family-friendly places with outdoor seating"
 
-**Use GitHub Codespaces**
+2. **AI Recommendations**: If n8n is configured, the app will use AI to provide personalized suggestions based on your query
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. **Browse Results**: View detailed restaurant cards with:
+   - Restaurant name and cuisine type
+   - Specialties and location
+   - Operating hours and ratings
+   - Sample customer reviews
 
-## What technologies are used for this project?
+## AI Integration 🤖
 
-This project is built with:
+The app supports AI-powered recommendations through n8n workflows:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Configure `VITE_N8N_WEBHOOK_URL` to enable AI features
+- The system sends user queries to your n8n workflow
+- Falls back to database search if AI service is unavailable
+- Supports flexible response formats for different AI providers
 
-## How can I deploy this project?
+## Deployment 🌐
 
-Simply open [Lovable](https://lovable.dev/projects/3584542e-216d-4a85-bd05-2a33dbde2c33) and click on Share -> Publish.
+### Quick Deploy with Lovable
+1. Open your [Lovable Project](https://lovable.dev)
+2. Click Share → Publish
+3. Configure your custom domain if needed
 
-## Can I connect a custom domain to my Lovable project?
+### Manual Deployment
+The app can be deployed to any static hosting service:
 
-Yes, you can!
+```sh
+npm run build
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Deploy the `dist` folder to your hosting provider.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Contributing 🤝
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Environment Variables 📝
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL | Yes |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
+| `VITE_N8N_WEBHOOK_URL` | n8n webhook URL for AI features | No |
+
+## License 📄
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with ❤️ for food lovers everywhere
