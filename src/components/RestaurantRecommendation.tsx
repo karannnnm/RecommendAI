@@ -31,6 +31,8 @@ const RestaurantRecommendation = () => {
       if (n8nWebhookUrl) {
         // Use n8n for AI-powered recommendations
         try {
+          console.log('Calling n8n webhook with query:', query);
+          
           const response = await fetch(n8nWebhookUrl, {
             method: 'POST',
             headers: {
@@ -44,22 +46,69 @@ const RestaurantRecommendation = () => {
 
           if (response.ok) {
             const data = await response.json();
-            setRecommendations(data.restaurants || []);
+            console.log('n8n response:', data);
+            
+            // Handle the specific n8n response format
+            let restaurants = [];
+            if (data.restaurants && Array.isArray(data.restaurants)) {
+              restaurants = data.restaurants;
+            } else if (Array.isArray(data)) {
+              restaurants = data;
+            } else {
+              console.log('Unexpected n8n response format:', data);
+              restaurants = [];
+            }
+            
+            console.log('Raw restaurants from AI:', restaurants);
+            
+            // Normalize restaurant data for UI display
+            const normalizedRestaurants = restaurants.map((restaurant, index) => {
+              console.log('Processing restaurant:', restaurant);
+              
+              // Handle specialties array
+              let speciality = 'Not specified';
+              if (restaurant.specialties && Array.isArray(restaurant.specialties)) {
+                speciality = restaurant.specialties.join(', ');
+              } else if (restaurant.speciality) {
+                speciality = restaurant.speciality;
+              }
+              
+              return {
+                id: restaurant.id || `ai-restaurant-${index}`,
+                restaurantName: restaurant.name || restaurant.restaurantName || restaurant.restaurantname || 'Unknown Restaurant',
+                cuisine: restaurant.cuisine || 'Unknown Cuisine',
+                sampleReview: restaurant.sampleReview || restaurant.samplereview || restaurant.review || `Highly rated restaurant with ${restaurant.rating || 'excellent'} rating`,
+                speciality: speciality,
+                location: restaurant.location || 'Location not specified',
+                timings: restaurant.timings || restaurant.hours || 'Contact for hours',
+                rating: restaurant.rating || null
+              };
+            });
+            
+            setRecommendations(normalizedRestaurants);
             
             toast({
               title: "AI Recommendations Ready!",
-              description: `Found ${data.restaurants?.length || 0} personalized recommendations.`,
+              description: restaurants.length > 0 
+                ? `Found ${restaurants.length} personalized recommendations based on your query.`
+                : "No restaurants found matching your criteria. Try a different search.",
+              variant: restaurants.length > 0 ? "default" : "destructive"
             });
             
             setIsLoading(false);
             return;
+          } else {
+            console.error('n8n webhook error:', response.status, response.statusText);
+            throw new Error(`n8n webhook returned ${response.status}`);
           }
         } catch (n8nError) {
-          console.log("n8n not available, falling back to database search");
+          console.error("n8n error:", n8nError);
+          console.log("Falling back to database search");
         }
       }
 
       // Fallback: Direct database search with basic filtering
+      console.log('Using fallback database search');
       const { data: restaurants, error } = await supabase
         .from('restaurants')
         .select('*')
@@ -72,7 +121,7 @@ const RestaurantRecommendation = () => {
       setRecommendations(restaurants || []);
       
       toast({
-        title: "Recommendations found!",
+        title: "Database Search Complete",
         description: `Found ${restaurants?.length || 0} restaurants matching your query.`,
       });
       
@@ -136,8 +185,17 @@ const RestaurantRecommendation = () => {
             {recommendations.length > 0 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold text-center">
-                  Recommended Restaurants
+                  Recommended Restaurants ({recommendations.length})
                 </h2>
+                
+                {/* Debug info - remove this after testing */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="bg-gray-100 p-4 rounded text-xs">
+                    <strong>Debug - Recommendations State:</strong>
+                    <pre>{JSON.stringify(recommendations, null, 2)}</pre>
+                  </div>
+                )}
+                
                 <div className="grid gap-6 md:grid-cols-2">
                   {recommendations.map((restaurant) => (
                     <Card key={restaurant.id} className="shadow-elegant hover:shadow-glow transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm">
@@ -145,6 +203,12 @@ const RestaurantRecommendation = () => {
                         <div className="flex items-center space-x-2">
                           <Utensils className="h-6 w-6 text-primary" />
                           <h3 className="text-xl font-semibold">{restaurant.restaurantName}</h3>
+                          {restaurant.rating && (
+                            <div className="flex items-center space-x-1 ml-auto">
+                              <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                              <span className="text-sm font-medium">{restaurant.rating}</span>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="space-y-2">
@@ -152,7 +216,7 @@ const RestaurantRecommendation = () => {
                             <span className="font-medium">Cuisine:</span> {restaurant.cuisine}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">Speciality:</span> {restaurant.speciality}
+                            <span className="font-medium">Specialities:</span> {restaurant.speciality}
                           </p>
                           <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                             <MapPin className="h-4 w-4" />

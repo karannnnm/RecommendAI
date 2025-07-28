@@ -13,5 +13,6 @@ export type Restaurant = {
   speciality: string
   location: string
   timings: string
+  rating?: number  // Optional rating field for AI recommendations
   created_at?: string
 }
