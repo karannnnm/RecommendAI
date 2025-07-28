@@ -11,6 +11,7 @@ export type Restaurant = {
   cuisine: string
   sampleReview: string
   speciality: string
+  location: string
   timings: string
   created_at?: string
 }

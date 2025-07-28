@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Utensils, Clock, Star } from "lucide-react";
+import { Search, Utensils, Clock, Star, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, type Restaurant } from "@/lib/supabase";
 
@@ -25,11 +25,45 @@ const RestaurantRecommendation = () => {
 
     setIsLoading(true);
     try {
-      // For now, fetch all restaurants from Supabase
-      // Later this will be replaced with n8n webhook for AI recommendations
+      // Check if n8n webhook URL is configured
+      const n8nWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+      
+      if (n8nWebhookUrl) {
+        // Use n8n for AI-powered recommendations
+        try {
+          const response = await fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: query,
+              action: 'search_restaurants'
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setRecommendations(data.restaurants || []);
+            
+            toast({
+              title: "AI Recommendations Ready!",
+              description: `Found ${data.restaurants?.length || 0} personalized recommendations.`,
+            });
+            
+            setIsLoading(false);
+            return;
+          }
+        } catch (n8nError) {
+          console.log("n8n not available, falling back to database search");
+        }
+      }
+
+      // Fallback: Direct database search with basic filtering
       const { data: restaurants, error } = await supabase
         .from('restaurants')
-        .select('*');
+        .select('*')
+        .or(`restaurantName.ilike.%${query}%,cuisine.ilike.%${query}%,speciality.ilike.%${query}%,location.ilike.%${query}%`);
 
       if (error) {
         throw error;
@@ -39,7 +73,7 @@ const RestaurantRecommendation = () => {
       
       toast({
         title: "Recommendations found!",
-        description: `Found ${restaurants?.length || 0} restaurants in database.`,
+        description: `Found ${restaurants?.length || 0} restaurants matching your query.`,
       });
       
     } catch (error) {
@@ -49,6 +83,7 @@ const RestaurantRecommendation = () => {
         description: "Failed to get recommendations. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -119,6 +154,10 @@ const RestaurantRecommendation = () => {
                           <p className="text-sm text-muted-foreground">
                             <span className="font-medium">Speciality:</span> {restaurant.speciality}
                           </p>
+                          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{restaurant.location}</span>
+                          </div>
                           <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4" />
                             <span>{restaurant.timings}</span>
