@@ -11,7 +11,7 @@ export function isPlaceOpen(place: Place, currentTime?: Date): boolean {
   if (!place.operating_hours) return false;
   
   const now = currentTime || new Date();
-  const dayName = now.toLocaleLowerCase().substring(0, 3) as keyof OperatingHours;
+  const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof OperatingHours;
   const currentTimeStr = now.toTimeString().substring(0, 5); // HH:MM format
   
   // Check if place is closed today
@@ -20,7 +20,7 @@ export function isPlaceOpen(place: Place, currentTime?: Date): boolean {
   }
   
   const todayHours = place.operating_hours[dayName];
-  if (!todayHours) return false;
+  if (!todayHours || typeof todayHours === 'object' && Array.isArray(todayHours)) return false;
   
   return currentTimeStr >= todayHours.open && currentTimeStr <= todayHours.close;
 }
@@ -36,7 +36,7 @@ export function getFormattedHours(place: Place): string {
   
   for (const day of days) {
     const dayHours = place.operating_hours[day as keyof OperatingHours];
-    if (dayHours) {
+    if (dayHours && typeof dayHours === 'object' && !Array.isArray(dayHours) && 'open' in dayHours && 'close' in dayHours) {
       hours.push(`${day.charAt(0).toUpperCase() + day.slice(1)}: ${dayHours.open} - ${dayHours.close}`);
     } else if (place.operating_hours.closed_days?.includes(day)) {
       hours.push(`${day.charAt(0).toUpperCase() + day.slice(1)}: Closed`);

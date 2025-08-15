@@ -3,21 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Utensils, Clock, Star, MapPin } from "lucide-react";
+import { Search, Utensils, Clock, Star, MapPin, Wine, Coffee, Music } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, type Restaurant } from "@/lib/supabase";
+import { supabase, type Place } from "@/lib/supabase";
+import { getFormattedHours, getPriceRangeText } from "@/lib/place-utils";
 
-const RestaurantRecommendation = () => {
+const PlaceRecommendation = () => {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [recommendations, setRecommendations] = useState<Restaurant[]>([]);
+  const [recommendations, setRecommendations] = useState<Place[]>([]);
   const { toast } = useToast();
 
   const handleSearch = async () => {
     if (!query.trim()) {
       toast({
         title: "Please enter a query",
-        description: "Tell us what kind of restaurant you're looking for!",
+        description: "Tell us what kind of place you're looking for!",
         variant: "destructive",
       });
       return;
@@ -25,104 +26,56 @@ const RestaurantRecommendation = () => {
 
     setIsLoading(true);
     try {
-      // Check if n8n webhook URL is configured
-      const n8nWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
-      
-      if (n8nWebhookUrl) {
-        // Use n8n for AI-powered recommendations
-        try {
-          console.log('Calling n8n webhook with query:', query);
-          
-          const response = await fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: query,
-              action: 'search_restaurants'
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log('n8n response:', data);
-            
-            // Handle the specific n8n response format
-            let restaurants = [];
-            if (data.restaurants && Array.isArray(data.restaurants)) {
-              restaurants = data.restaurants;
-            } else if (Array.isArray(data)) {
-              restaurants = data;
-            } else {
-              console.log('Unexpected n8n response format:', data);
-              restaurants = [];
-            }
-            
-            console.log('Raw restaurants from AI:', restaurants);
-            
-            // Normalize restaurant data for UI display
-            const normalizedRestaurants = restaurants.map((restaurant, index) => {
-              console.log('Processing restaurant:', restaurant);
-              
-              // Handle specialties array
-              let speciality = 'Not specified';
-              if (restaurant.specialties && Array.isArray(restaurant.specialties)) {
-                speciality = restaurant.specialties.join(', ');
-              } else if (restaurant.speciality) {
-                speciality = restaurant.speciality;
-              }
-              
-              return {
-                id: restaurant.id || `ai-restaurant-${index}`,
-                restaurantName: restaurant.name || restaurant.restaurantName || restaurant.restaurantname || 'Unknown Restaurant',
-                cuisine: restaurant.cuisine || 'Unknown Cuisine',
-                sampleReview: restaurant.sampleReview || restaurant.samplereview || restaurant.review || `Highly rated restaurant with ${restaurant.rating || 'excellent'} rating`,
-                speciality: speciality,
-                location: restaurant.location || 'Location not specified',
-                timings: restaurant.timings || restaurant.hours || 'Contact for hours',
-                rating: restaurant.rating || null
-              };
-            });
-            
-            setRecommendations(normalizedRestaurants);
-            
-            toast({
-              title: "AI Recommendations Ready!",
-              description: restaurants.length > 0 
-                ? `Found ${restaurants.length} personalized recommendations based on your query.`
-                : "No restaurants found matching your criteria. Try a different search.",
-              variant: restaurants.length > 0 ? "default" : "destructive"
-            });
-            
-            setIsLoading(false);
-            return;
-          } else {
-            console.error('n8n webhook error:', response.status, response.statusText);
-            throw new Error(`n8n webhook returned ${response.status}`);
-          }
-        } catch (n8nError) {
-          console.error("n8n error:", n8nError);
-          console.log("Falling back to database search");
-        }
-      }
-
-      // Fallback: Direct database search with basic filtering
-      console.log('Using fallback database search');
-      const { data: restaurants, error } = await supabase
-        .from('restaurants')
+      // Search across all place types with comprehensive filtering
+      const { data: places, error } = await supabase
+        .from('places')
         .select('*')
-        .or(`restaurantName.ilike.%${query}%,cuisine.ilike.%${query}%,speciality.ilike.%${query}%,location.ilike.%${query}%`);
+        .or(
+          `name.ilike.%${query}%,` +
+          `cuisine.ilike.%${query}%,` +
+          `description.ilike.%${query}%,` +
+          `location.ilike.%${query}%,` +
+          `neighborhood.ilike.%${query}%,` +
+          `place_type.ilike.%${query}%,` +
+          `specialities.cs.{${query}},` +
+          `features.cs.{${query}}`
+        );
 
       if (error) {
         throw error;
       }
 
-      setRecommendations(restaurants || []);
+      // Additional filtering for menu items if query doesn't match basic fields
+      let menuFilteredPlaces: Place[] = [];
+      if (places && places.length === 0) {
+        const { data: menuPlaces, error: menuError } = await supabase
+          .from('places')
+          .select('*')
+          .not('menu', 'is', null);
+
+        if (!menuError && menuPlaces) {
+          menuFilteredPlaces = menuPlaces.filter(place => {
+            if (!place.menu || typeof place.menu !== 'object') return false;
+            
+            const menuText = JSON.stringify(place.menu).toLowerCase();
+            return menuText.includes(query.toLowerCase());
+          });
+        }
+      }
+
+      const allResults = [...(places || []), ...menuFilteredPlaces];
+      const uniqueResults = allResults.filter((place, index, self) => 
+        index === self.findIndex(p => p.id === place.id)
+      );
+
+      setRecommendations(uniqueResults);
       
       toast({
-        title: "Database Search Complete",
-        description: `Found ${restaurants?.length || 0} restaurants matching your query.`,
+        title: uniqueResults.length > 0 ? "Places Found!" : "No Results",
+        description: uniqueResults.length > 0 
+          ? `Found ${uniqueResults.length} places matching your query.`
+          : "No places found matching your criteria. Try a different search.",
+        variant: uniqueResults.length > 0 ? "default" : "destructive"
       });
       
     } catch (error) {
@@ -142,10 +95,10 @@ const RestaurantRecommendation = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">
-            Restaurant Finder
+            Ottawa Places Finder
           </h1>
           <p className="text-lg text-muted-foreground">
-            Discover perfect dining experiences tailored to your taste
+            Discover restaurants, bars, cafés, and clubs in Downtown Ottawa
           </p>
         </div>
 
@@ -163,7 +116,7 @@ const RestaurantRecommendation = () => {
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
                     <Input
-                      placeholder="Ask about restaurants... e.g., 'Which restaurant has the best Italian food?'"
+                      placeholder="Search places... e.g., 'shawarma', 'late night bars', 'matcha latte', 'live music'"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       className="pl-12 h-14 text-lg border-2 border-primary/20 focus:border-primary transition-all duration-300"
@@ -175,7 +128,7 @@ const RestaurantRecommendation = () => {
                     disabled={isLoading}
                     className="h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300"
                   >
-                    {isLoading ? "Searching..." : "Find Restaurants"}
+                    {isLoading ? "Searching..." : "Find Places"}
                   </Button>
                 </div>
               </CardContent>
@@ -185,61 +138,102 @@ const RestaurantRecommendation = () => {
             {recommendations.length > 0 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold text-center">
-                  Recommended Restaurants ({recommendations.length})
+                  Found Places ({recommendations.length})
                 </h2>
                 
-                {/* Debug info - remove this after testing */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="bg-gray-100 p-4 rounded text-xs">
-                    <strong>Debug - Recommendations State:</strong>
-                    <pre>{JSON.stringify(recommendations, null, 2)}</pre>
-                  </div>
-                )}
-                
                 <div className="grid gap-6 md:grid-cols-2">
-                  {recommendations.map((restaurant) => (
-                    <Card key={restaurant.id} className="shadow-elegant hover:shadow-glow transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm">
-                      <CardContent className="p-6 space-y-4">
-                        <div className="flex items-center space-x-2">
-                          <Utensils className="h-6 w-6 text-primary" />
-                          <h3 className="text-xl font-semibold">{restaurant.restaurantName}</h3>
-                          {restaurant.rating && (
-                            <div className="flex items-center space-x-1 ml-auto">
-                              <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                              <span className="text-sm font-medium">{restaurant.rating}</span>
+                  {recommendations.map((place) => {
+                    const getPlaceIcon = (placeType: string) => {
+                      switch (placeType) {
+                        case 'bar': return <Wine className="h-6 w-6 text-primary" />;
+                        case 'cafe': return <Coffee className="h-6 w-6 text-primary" />;
+                        case 'club': return <Music className="h-6 w-6 text-primary" />;
+                        default: return <Utensils className="h-6 w-6 text-primary" />;
+                      }
+                    };
+
+                    const getFirstReview = () => {
+                      if (place.reviews && Array.isArray(place.reviews) && place.reviews.length > 0) {
+                        return place.reviews[0].text;
+                      }
+                      return place.description || "Great place with excellent service.";
+                    };
+
+                    return (
+                      <Card key={place.id} className="shadow-elegant hover:shadow-glow transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm">
+                        <CardContent className="p-6 space-y-4">
+                          <div className="flex items-center space-x-2">
+                            {getPlaceIcon(place.place_type)}
+                            <h3 className="text-xl font-semibold">{place.name}</h3>
+                            <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full capitalize">
+                              {place.place_type}
+                            </span>
+                            {place.rating && (
+                              <div className="flex items-center space-x-1 ml-auto">
+                                <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                <span className="text-sm font-medium">{place.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {place.cuisine && (
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Cuisine:</span> {place.cuisine}
+                              </p>
+                            )}
+                            {place.specialities && place.specialities.length > 0 && (
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Specialities:</span> {place.specialities.join(', ')}
+                              </p>
+                            )}
+                            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                              <MapPin className="h-4 w-4" />
+                              <span>{place.location}</span>
+                              {place.neighborhood && <span>• {place.neighborhood}</span>}
                             </div>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">Cuisine:</span> {restaurant.cuisine}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">Specialities:</span> {restaurant.speciality}
-                          </p>
-                          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{restaurant.location}</span>
+                            {place.price_range && (
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Price:</span> {getPriceRangeText(place.price_range)}
+                              </p>
+                            )}
+                            {place.operating_hours && (
+                              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span className="truncate">{getFormattedHours(place)}</span>
+                              </div>
+                            )}
+                            {place.features && place.features.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {place.features.slice(0, 4).map((feature, index) => (
+                                  <span key={index} className="text-xs px-2 py-1 bg-secondary/10 text-secondary rounded">
+                                    {feature.replace('_', ' ')}
+                                  </span>
+                                ))}
+                                {place.features.length > 4 && (
+                                  <span className="text-xs px-2 py-1 bg-secondary/10 text-secondary rounded">
+                                    +{place.features.length - 4} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{restaurant.timings}</span>
+                          
+                          <div className="pt-4 border-t">
+                            <div className="flex items-center space-x-1 mb-2">
+                              <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                              <span className="text-sm font-medium">
+                                {place.reviews && place.reviews.length > 0 ? 'Customer Review' : 'About'}
+                              </span>
+                            </div>
+                            <p className="text-sm italic text-muted-foreground line-clamp-3">
+                              "{getFirstReview()}"
+                            </p>
                           </div>
-                        </div>
-                        
-                        <div className="pt-4 border-t">
-                          <div className="flex items-center space-x-1 mb-2">
-                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                            <span className="text-sm font-medium">Customer Review</span>
-                          </div>
-                          <p className="text-sm italic text-muted-foreground">
-                            "{restaurant.sampleReview}"
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -264,4 +258,4 @@ const RestaurantRecommendation = () => {
   );
 };
 
-export default RestaurantRecommendation;
+export default PlaceRecommendation;

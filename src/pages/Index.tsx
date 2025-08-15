@@ -1,7 +1,7 @@
-import RestaurantRecommendation from "@/components/RestaurantRecommendation";
+import PlaceRecommendation from "@/components/RestaurantRecommendation";
 
 const Index = () => {
-  return <RestaurantRecommendation />;
+  return <PlaceRecommendation />;
 };
 
 export default Index;
