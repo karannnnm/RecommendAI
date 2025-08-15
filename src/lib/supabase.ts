@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = 'https://zjncavdxdpkwwsvcwswv.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqbmNhdmR4ZHBrd3dzdmN3c3d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM1NjYxMjYsImV4cCI6MjA2OTE0MjEyNn0.aVoaKCENdFXCrerVL0xpMI5XKGHuouGcs38isHk5WNA'
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -49,7 +49,7 @@ export type SalesHistory = {
 
 // Main Place type (replacing Restaurant)
 export type Place = {
-  id: string;
+  id: number;
   name: string;
   place_type: 'restaurant' | 'bar' | 'cafe' | 'club';
   cuisine?: string;
